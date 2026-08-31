@@ -119,7 +119,7 @@ function vPainel(){
 
   <h2>Evolução do domínio</h2>
   <div class="box"><canvas id="graf" height="180"></canvas>
-  ${S.rodadas.length<2?'<p class="mut" style="text-align:center;margin-top:8px">Responda mais rodadas para a curva aparecer.</p>':''}</div>
+  <p class="mut" style="margin-top:8px;font-size:12px">Eixo em tempo real, do primeiro dia de estudo até hoje. O ponto vazio é o início, sem domínio medido. ${S.config.prova||S.config.edital?"A linha vermelha vertical marca a prova.":"Registre a data da prova para ver quanto tempo resta."}</p></div>
 
   <h2>Comportamento</h2>
   <table>
@@ -395,19 +395,49 @@ function linha(id, pts, rot){
   // linha da meta
   const ym=P/2+h*0.5; x.strokeStyle="#c0392b"; x.setLineDash([4,3]);
   x.beginPath(); x.moveTo(P,ym); x.lineTo(W-P/2,ym); x.stroke(); x.setLineDash([]);
-  if(pts.length<1) return;
-  const px=i=>P+(pts.length===1?w/2:w*(i/(pts.length-1)));
+  if(pts.length<2) return;
+  // eixo de tempo real: do início até hoje (ou até a prova, se houver)
+  const t0=Date.parse(DATA_INICIO);
+  const alvo=S.config.prova||S.config.edital;
+  const t1=Math.max(Date.parse(hoje()), Date.parse(pts[pts.length-1].d), alvo?Date.parse(alvo):0);
+  const span=Math.max(1, t1-t0);
+  const px=d=>P+w*((Date.parse(d)-t0)/span);
   const py=v=>P/2+h*(1-v/100);
+  // marcas de mês
+  const m0=new Date(t0); m0.setDate(1);
+  x.font="9px Helvetica"; x.textAlign="center";
+  const mn=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+  for(let d=new Date(m0); d.getTime()<=t1; d.setMonth(d.getMonth()+1)){
+    if(d.getTime()<t0) continue;
+    const cx=px(d.toISOString().slice(0,10));
+    x.strokeStyle="#eef1f4"; x.beginPath(); x.moveTo(cx,P/2); x.lineTo(cx,P/2+h); x.stroke();
+    x.fillStyle="#a8b4c0"; x.fillText(mn[d.getMonth()], cx, H-16);
+  }
+  // marcador da data da prova
+  if(alvo && Date.parse(alvo)<=t1){
+    const cx=px(alvo); x.strokeStyle="#c0392b"; x.setLineDash([2,3]);
+    x.beginPath(); x.moveTo(cx,P/2); x.lineTo(cx,P/2+h); x.stroke(); x.setLineDash([]);
+    x.fillStyle="#c0392b"; x.font="bold 9px Helvetica"; x.fillText("prova", cx, P/2-4);
+  }
+  // linha
   x.strokeStyle="#0f2b46"; x.lineWidth=2; x.lineJoin="round"; x.beginPath();
-  pts.forEach((p,i)=>{ i?x.lineTo(px(i),py(p.v)):x.moveTo(px(i),py(p.v)); }); x.stroke();
+  pts.forEach((p,i)=>{ i?x.lineTo(px(p.d),py(p.v)):x.moveTo(px(p.d),py(p.v)); }); x.stroke();
+  // pontos
   pts.forEach((p,i)=>{
-    x.fillStyle="#fff"; x.beginPath(); x.arc(px(i),py(p.v),5,0,7); x.fill();
+    const cx=px(p.d), cy=py(p.v);
+    if(p.ini){
+      x.fillStyle="#fff"; x.strokeStyle="#8b98a5"; x.lineWidth=1.5;
+      x.beginPath(); x.arc(cx,cy,4,0,7); x.fill(); x.stroke();
+      x.fillStyle="#8b98a5"; x.font="9px Helvetica"; x.textAlign="left";
+      x.fillText("início", cx+7, cy-5); return;
+    }
+    x.fillStyle="#fff"; x.beginPath(); x.arc(cx,cy,5,0,7); x.fill();
     x.fillStyle=p.v>=50?"#2e7d32":p.v>=35?"#9a7b30":"#c0392b";
-    x.beginPath(); x.arc(px(i),py(p.v),3.5,0,7); x.fill();
-    x.fillStyle="#0f2b46"; x.font="bold 10px Helvetica"; x.textAlign="center";
-    x.fillText(Math.round(p.v)+"%", px(i), py(p.v)-11);
-    x.fillStyle="#8b98a5"; x.font="9px Helvetica";
-    x.fillText(p.l, px(i), H-16);
+    x.beginPath(); x.arc(cx,cy,3.5,0,7); x.fill();
+    if(i===pts.length-1){
+      x.fillStyle="#0f2b46"; x.font="bold 11px Helvetica"; x.textAlign="right";
+      x.fillText(Math.round(p.v)+"%", cx-8, cy+4);
+    }
   });
   x.fillStyle="#8b98a5"; x.font="9px Helvetica"; x.textAlign="center";
   x.fillText(rot, W/2, H-3);
@@ -415,9 +445,10 @@ function linha(id, pts, rot){
 function serie(){
   const ord=[...S.rodadas].sort((a,b)=>a.data.localeCompare(b.data));
   const dias=[...new Set(ord.map(x=>x.data))].sort();
-  let r=0,t=0; const pts=[];
+  let r=0,t=0;
+  const pts=[{d:DATA_INICIO, v:0, q:0, ini:true}];
   dias.forEach(d=>{ ord.filter(x=>x.data===d).forEach(x=>{r+=x.reais;t+=x.total;});
-    pts.push({v:r/t*100, l:d.slice(8)+"/"+d.slice(5,7), q:t}); });
+    pts.push({d, v:r/t*100, q:t}); });
   return pts;
 }
 // desempenho isolado do simulado mais recente
@@ -429,8 +460,8 @@ function ultSimulado(){
   const t=g.reduce((a,x)=>a+x.total,0), re=g.reduce((a,x)=>a+x.reais,0), ch=g.reduce((a,x)=>a+x.chutes,0);
   return {nome, t, re, ch, pc: re/t*100, data: g[0].data};
 }
-function desenhaGrafico(){ linha("graf", serie(), "acumulado · tracejado = corte de 50%"); }
-function desenhaEvolucao(){ linha("evo", serie(), "acumulado · tracejado = corte de 50%"); }
+function desenhaGrafico(){ linha("graf", serie(), "domínio acumulado desde 21/07/2026 · tracejado horizontal = corte de 50%"); }
+function desenhaEvolucao(){ linha("evo", serie(), "domínio acumulado desde 21/07/2026 · tracejado horizontal = corte de 50%"); }
 
 // ─── BOOT ───
 (async function(){
