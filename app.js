@@ -9,17 +9,29 @@ const fmtHm = s => { const h=Math.floor(s/3600), m=Math.floor(s%3600/60), g=s%60
   return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(g).padStart(2,"0")}`; };
 const disc = id => DISCIPLINAS.find(d=>d.id===id);
 
+let DIAG = {status:"—", msg:"ainda não testado", quando:null};
+
 async function carregar(){
-  const local = localStorage.getItem(LS);
-  if (local) { try { S = {...S, ...JSON.parse(local)}; } catch(e){} }
+  let loc=null;
+  const raw = localStorage.getItem(LS);
+  if (raw) { try { loc = JSON.parse(raw); } catch(e){} }
+  let rem=null;
   try {
-    const r = await fetch("/api/store");
-    if (r.ok) {
-      const d = await r.json();
-      if (d && d.sessoes) S = {...S, ...d};
-      sincOK = true;
-    }
-  } catch(e) { sincOK = false; }
+    const r = await fetch("/api/store", {cache:"no-store"});
+    const txt = await r.text();
+    let j=null; try{ j=JSON.parse(txt); }catch(e){}
+    if (r.ok && j && j.ok) { rem = j.dados; sincOK = true; DIAG={status:r.status, msg:"servidor respondendo", quando:Date.now()}; }
+    else { sincOK=false; DIAG={status:r.status, msg:(j&&(j.dica||j.detalhe||j.erro))||txt.slice(0,180)||"resposta inesperada", quando:Date.now()}; }
+  } catch(e) { sincOK=false; DIAG={status:"sem resposta", msg:String(e&&e.message||e), quando:Date.now()}; }
+
+  // vence o mais recente; na dúvida, o que tiver mais registros
+  const peso = o => o ? (o.rodadas||[]).length + (o.sessoes||[]).length + (o.erros||[]).length : -1;
+  let base = null;
+  if (loc && rem) {
+    const tl = loc.atualizadoEm||0, tr = rem.atualizadoEm||0;
+    base = tr>tl ? rem : tl>tr ? loc : (peso(rem)>=peso(loc)?rem:loc);
+  } else base = rem || loc;
+  if (base) S = {...S, ...base};
   if (!S.dias.length) S.dias = [...DIAS_INICIAIS];
   if (!S.rodadas.length) S.rodadas = RODADAS_INICIAIS.map(r=>({...r}));
   if (!S.discursivas.length) S.discursivas = DISC_INICIAIS.map(d=>({...d}));
@@ -30,13 +42,17 @@ async function carregar(){
   statusSinc();
 }
 async function salvar(){
+  S.atualizadoEm = Date.now();
   localStorage.setItem(LS, JSON.stringify(S));
   if (salvando) { pendente = true; return; }
   salvando = true;
   try {
     const r = await fetch("/api/store", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(S)});
-    sincOK = r.ok;
-  } catch(e) { sincOK = false; }
+    const txt = await r.text(); let j=null; try{ j=JSON.parse(txt); }catch(e){}
+    sincOK = r.ok && j && j.ok;
+    DIAG = sincOK ? {status:r.status, msg:"gravado no servidor", quando:Date.now()}
+                  : {status:r.status, msg:(j&&(j.dica||j.detalhe||j.erro))||txt.slice(0,180), quando:Date.now()};
+  } catch(e) { sincOK=false; DIAG={status:"sem resposta", msg:String(e&&e.message||e), quando:Date.now()}; }
   salvando = false;
   statusSinc();
   if (pendente) { pendente = false; salvar(); }
@@ -46,6 +62,12 @@ function statusSinc(){
   if (!el) return;
   el.textContent = sincOK ? "sincronizado" : "só neste aparelho";
   el.className = "sinc " + (sincOK ? "on" : "off");
+  el.onclick = () => irPara("edital");
+  el.style.cursor = "pointer";
+}
+async function forcarSinc(){
+  const b=document.getElementById("bsinc"); if(b){b.disabled=true;b.textContent="Sincronizando…";}
+  await carregar(); await salvar(); render();
 }
 
 // ════════════ NAVEGAÇÃO ════════════
@@ -461,7 +483,21 @@ function vEdital(){
     <tr><td>Discursiva</td><td>4 questões · <b>abaixo de 60 elimina</b></td></tr>
     <tr><td>Eliminatórios extras</td><td>CNH · teste físico</td></tr>
   </table>
-  <div class="box aviso">Zerar Língua Portuguesa elimina do certame, qualquer que seja o restante da nota.</div>`;
+  <div class="box aviso">Zerar Língua Portuguesa elimina do certame, qualquer que seja o restante da nota.</div>
+
+  <h2>Sincronização entre aparelhos</h2>
+  <div class="box">
+    <table style="margin-bottom:10px">
+      <tr><td>Situação</td><td><b class="${sincOK?"vg":"vr"}">${sincOK?"sincronizado":"só neste aparelho"}</b></td></tr>
+      <tr><td>Resposta do servidor</td><td><b>${DIAG.status}</b></td></tr>
+      <tr><td>Detalhe</td><td style="font-size:12px">${DIAG.msg}</td></tr>
+      <tr><td>Última gravação</td><td>${S.atualizadoEm?new Date(S.atualizadoEm).toLocaleString("pt-BR"):"—"}</td></tr>
+      <tr><td>Registros</td><td>${(S.rodadas||[]).length} rodadas · ${(S.erros||[]).length} erros · ${(S.sessoes||[]).length} sessões</td></tr>
+    </table>
+    <button class="pri full" id="bsinc" onclick="forcarSinc()">Sincronizar agora</button>
+    <p class="mut" style="margin-top:10px">Abra esta tela nos dois aparelhos e toque em <b>Sincronizar agora</b>. Vence sempre a gravação mais recente; em empate, a que tiver mais registros.</p>
+  </div>
+  ${!sincOK?`<div class="box aviso"><b>O servidor não respondeu.</b> Os dados continuam salvos neste aparelho e sobem sozinhos quando a conexão voltar.<br><br>Se persistir, confira no Netlify: o deploy precisa incluir <code>netlify/functions/store.js</code>, o <code>package.json</code> com <code>@netlify/blobs</code>, e o build command <code>npm install</code>.</div>`:""}`;
 }
 
 // ─── GRÁFICOS ───
