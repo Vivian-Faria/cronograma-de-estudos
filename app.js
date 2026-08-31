@@ -95,7 +95,8 @@ function vPainel(){
     ${card(m.streak, m.streak===1?"dia seguido":"dias seguidos","g")}
     ${card(m.dias.length,"dias estudados")}
     ${card(fmtH(m.totalSeg),"tempo total")}
-    ${card(m.dominio.toFixed(0)+"%","domínio real", m.dominio>=50?"g":m.dominio>=35?"y":"r")}
+    ${(()=>{const u=ultSimulado(); const v=u?u.pc:m.dominio;
+      return card(v.toFixed(0)+"%","último simulado", v>=50?"g":v>=35?"y":"r");})()}
     ${(()=>{const d=S.discursivas.filter(x=>x.tent===1);
       if(!d.length) return card("—","discursiva");
       const md=d.reduce((a,x)=>a+x.nota,0)/d.length*4;
@@ -105,10 +106,15 @@ function vPainel(){
    `<div class="box aviso">Nenhuma data de edital ou prova registrada. <button class="lk" onclick="irPara('edital')">Definir agora</button></div>`}
 
   <h2>Rumo à aprovação</h2>
+  ${(()=>{const u=ultSimulado(); if(!u) return "";
+    return `<div class="box">
+    <p class="mut"><b>Medida mais fiel:</b> ${u.nome}, de ${br(u.data)} — a prova inteira, sem material para a maior parte das matérias.</p>
+    <div class="prog"><i style="width:${Math.min(100,u.pc/50*100)}%"></i></div>
+    <p class="mut" style="margin-top:8px">Domínio de <b>${u.pc.toFixed(1)}%</b> nesse simulado (${u.re} reais e ${u.ch} por chute em ${u.t}) — ${u.pc>=50?"acima do corte":`faltam <b>${(50-u.pc).toFixed(1)} pontos</b>`}.</p></div>`;})()}
   <div class="box">
-    <p class="mut">Meta: <b>50% de domínio real</b> em cada bloco. A barra mostra a distância.</p>
+    <p class="mut"><b>Acumulado de tudo</b> — inclui as rodadas de matérias já estudadas, por isso é mais alto.</p>
     <div class="prog"><i style="width:${Math.min(100,m.dominio/50*100)}%"></i></div>
-    <p class="mut" style="margin-top:8px">Domínio real de <b>${m.dominio.toFixed(1)}%</b> — ${m.dominio>=50?"acima do corte":`faltam ${(50-m.dominio).toFixed(1)} pontos`}.</p>
+    <p class="mut" style="margin-top:8px">Domínio real de <b>${m.dominio.toFixed(1)}%</b> em ${m.totQ} questões.</p>
   </div>
 
   <h2>Evolução do domínio</h2>
@@ -215,18 +221,23 @@ let discAberta=null, modo="conteudo", dif="media", prova=null;
 function vDisc(){
   if(discAberta) return vModulo();
   const blocos=["TI","Português","Direito","RLM","DF","Outros","Arquivo"];
-  return `<div class="box aviso">Ordem definida no Cronograma v6. Metade das horas em TI — é o bloco que reprova.</div>
+  return `<div class="box aviso"><b>Como ler os percentuais.</b> Eles somam <b>todas</b> as rodadas da matéria, com o chute já descontado.<br><br>
+  <span class="org sim">só simulado</span> significa que o número vem apenas de provas respondidas sem material — é a <b>linha de base</b>, não resultado de estudo.
+  <span class="org est">estudado</span> indica que houve rodada de módulo.</div>
   ${blocos.map(b=>{
     const ds=DISCIPLINAS.filter(d=>d.bloco===b);
     if(!ds.length) return "";
     return `<h2>${b}${b==="Arquivo"?" — fora do edital PC-DF":""}</h2>${ds.map(d=>{
       const rs=S.rodadas.filter(r=>r.mat===d.id);
-      const ult=rs.length?rs[rs.length-1]:null;
-      const pc=ult?Math.round(ult.reais/ult.total*100):null;
-      return `<div class="item ${d.pronto?"":"off"}" onclick="${d.pronto?`abrir('${d.id}')`:`alert('Este módulo ainda não foi produzido.')`}">
+      const tot=rs.reduce((a,r)=>a+r.total,0), re=rs.reduce((a,r)=>a+r.reais,0);
+      const pc=tot?Math.round(re/tot*100):null;
+      const soSim=rs.length && rs.every(r=>(r.f||"").indexOf("Simulado")===0);
+      const org=soSim?"só simulado":(rs.length?"estudado":"");
+      return `<div class="item ${d.pronto?"":"off"}" onclick="${d.pronto?`abrir('${d.id}')`:`alert('Módulo ainda não produzido. O percentual vem apenas de simulados — é a linha de base, não estudo.')`}">
         <span class="ord">${d.ord}</span>
-        <span class="nm">${d.n}${d.pronto?"":' <em>em produção</em>'}</span>
-        ${pc!==null?`<span class="pill ${pc>=60?"g":pc>=35?"y":"r"}">${pc}%</span>`:d.pronto?'<span class="pill n">novo</span>':""}
+        <span class="nm">${d.n}${d.pronto?"":' <em>em produção</em>'}
+          ${pc!==null?`<i class="org ${soSim?"sim":"est"}">${org} · ${tot} ${tot===1?"questão":"questões"}</i>`:""}</span>
+        ${pc!==null?`<span class="pill ${pc>=60?"g":pc>=35?"y":"r"}">${pc}%</span>`:d.pronto?'<span class="pill n">sem registro</span>':""}
       </div>`;}).join("")}`;
   }).join("")}`;
 }
@@ -370,9 +381,12 @@ function vEdital(){
 // ─── GRÁFICOS ───
 function linha(id, pts, rot){
   const c=document.getElementById(id); if(!c) return;
-  const x=c.getContext("2d"), W=c.width=c.offsetWidth, H=c.height;
+  const dpr=window.devicePixelRatio||1;
+  const W=c.offsetWidth, H=220;
+  c.width=W*dpr; c.height=H*dpr; c.style.height=H+"px";
+  const x=c.getContext("2d"); x.scale(dpr,dpr);
   x.clearRect(0,0,W,H);
-  const P=34, w=W-P*2, h=H-P;
+  const P=38, w=W-P*2, h=H-P-16;
   x.strokeStyle="#dbe2e8"; x.lineWidth=1;
   for(let i=0;i<=4;i++){ const y=P/2+h*(i/4);
     x.beginPath(); x.moveTo(P,y); x.lineTo(W-P/2,y); x.stroke();
@@ -384,21 +398,39 @@ function linha(id, pts, rot){
   if(pts.length<1) return;
   const px=i=>P+(pts.length===1?w/2:w*(i/(pts.length-1)));
   const py=v=>P/2+h*(1-v/100);
-  x.strokeStyle="#0f2b46"; x.lineWidth=2.5; x.beginPath();
-  pts.forEach((p,i)=>{ i?x.lineTo(px(i),py(p)):x.moveTo(px(i),py(p)); }); x.stroke();
-  pts.forEach((p,i)=>{ x.fillStyle=p>=50?"#2e7d32":p>=35?"#9a7b30":"#c0392b";
-    x.beginPath(); x.arc(px(i),py(p),4.5,0,7); x.fill(); });
-  x.fillStyle="#8b98a5"; x.font="10px Helvetica"; x.textAlign="center";
-  x.fillText(rot, W/2, H-4);
+  x.strokeStyle="#0f2b46"; x.lineWidth=2; x.lineJoin="round"; x.beginPath();
+  pts.forEach((p,i)=>{ i?x.lineTo(px(i),py(p.v)):x.moveTo(px(i),py(p.v)); }); x.stroke();
+  pts.forEach((p,i)=>{
+    x.fillStyle="#fff"; x.beginPath(); x.arc(px(i),py(p.v),5,0,7); x.fill();
+    x.fillStyle=p.v>=50?"#2e7d32":p.v>=35?"#9a7b30":"#c0392b";
+    x.beginPath(); x.arc(px(i),py(p.v),3.5,0,7); x.fill();
+    x.fillStyle="#0f2b46"; x.font="bold 10px Helvetica"; x.textAlign="center";
+    x.fillText(Math.round(p.v)+"%", px(i), py(p.v)-11);
+    x.fillStyle="#8b98a5"; x.font="9px Helvetica";
+    x.fillText(p.l, px(i), H-16);
+  });
+  x.fillStyle="#8b98a5"; x.font="9px Helvetica"; x.textAlign="center";
+  x.fillText(rot, W/2, H-3);
 }
 function serie(){
   const ord=[...S.rodadas].sort((a,b)=>a.data.localeCompare(b.data));
-  const porDia={};
-  ord.forEach(x=>{ porDia[x.data]=porDia[x.data]||{r:0,t:0}; porDia[x.data].r+=x.reais; porDia[x.data].t+=x.total; });
-  return Object.keys(porDia).sort().map(d=>porDia[d].r/porDia[d].t*100);
+  const dias=[...new Set(ord.map(x=>x.data))].sort();
+  let r=0,t=0; const pts=[];
+  dias.forEach(d=>{ ord.filter(x=>x.data===d).forEach(x=>{r+=x.reais;t+=x.total;});
+    pts.push({v:r/t*100, l:d.slice(8)+"/"+d.slice(5,7), q:t}); });
+  return pts;
 }
-function desenhaGrafico(){ linha("graf", serie(), "linha vermelha = corte de 50%"); }
-function desenhaEvolucao(){ linha("evo", serie(), "domínio real acumulado por rodada"); }
+// desempenho isolado do simulado mais recente
+function ultSimulado(){
+  const sim=S.rodadas.filter(r=>(r.f||"").indexOf("Simulado")===0);
+  if(!sim.length) return null;
+  const nome=sim[sim.length-1].f;
+  const g=sim.filter(r=>r.f===nome);
+  const t=g.reduce((a,x)=>a+x.total,0), re=g.reduce((a,x)=>a+x.reais,0), ch=g.reduce((a,x)=>a+x.chutes,0);
+  return {nome, t, re, ch, pc: re/t*100, data: g[0].data};
+}
+function desenhaGrafico(){ linha("graf", serie(), "acumulado · tracejado = corte de 50%"); }
+function desenhaEvolucao(){ linha("evo", serie(), "acumulado · tracejado = corte de 50%"); }
 
 // ─── BOOT ───
 (async function(){
