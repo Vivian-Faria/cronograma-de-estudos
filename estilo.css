@@ -95,3 +95,11 @@ select,input[type=date]{width:100%;font-family:Georgia,serif;font-size:14px;padd
 .mh{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
 .vg{color:#2e7d32}.vy{color:#9a7b30}.vr{color:#c0392b}
 canvas{width:100%;display:block}
+
+.org{display:inline-block;font-family:Helvetica,Arial,sans-serif;font-size:9px;font-style:normal;letter-spacing:.4px;padding:2px 7px;border-radius:9px;margin-left:2px;vertical-align:1px}
+.org.sim{background:#f2eef7;color:#5a4a7a}
+.org.est{background:#e4f2e4;color:#2e7d32}
+.item .nm{line-height:1.45}
+
+.ord.vg{background:#2e7d32}.ord.vr{background:#c0392b}.ord.vy{background:#9a7b30}
+.item .nm i.org{display:inline-block;margin-left:6px}
