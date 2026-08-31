@@ -24,6 +24,9 @@ async function carregar(){
   if (!S.rodadas.length) S.rodadas = RODADAS_INICIAIS.map(r=>({...r}));
   if (!S.discursivas.length) S.discursivas = DISC_INICIAIS.map(d=>({...d}));
   if (!S.erros) S.erros = [];
+  if (!S.erros.length && typeof ERROS_INICIAIS !== "undefined")
+    S.erros = ERROS_INICIAIS.map(x=>({ id:qid(x), m:x.m, e:x.e, a:x.a, g:x.g, j:x.j, d:x.d,
+      tent:[{data:x.data, resp:(x.resp===undefined?-1:x.resp), ok:false, f:x.f}] }));
   statusSinc();
 }
 async function salvar(){
@@ -226,14 +229,14 @@ function delSessao(i){ if(confirm("Apagar esta sessão?")){ S.sessoes.splice(i,1
 let discAberta=null, modo="conteudo", dif="media", prova=null;
 function vDisc(){
   if(discAberta) return vModulo();
-  const blocos=["TI","Português","Direito","RLM","DF","Outros","Arquivo"];
+  const blocos=["TI","Português","Direito","RLM","DF","Outros"];
   return `<div class="box aviso"><b>Como ler os percentuais.</b> Eles somam <b>todas</b> as rodadas da matéria, com o chute já descontado.<br><br>
   <span class="org sim">só simulado</span> significa que o número vem apenas de provas respondidas sem material — é a <b>linha de base</b>, não resultado de estudo.
   <span class="org est">estudado</span> indica que houve rodada de módulo.</div>
   ${blocos.map(b=>{
     const ds=DISCIPLINAS.filter(d=>d.bloco===b);
     if(!ds.length) return "";
-    return `<h2>${b}${b==="Arquivo"?" — fora do edital PC-DF":""}</h2>${ds.map(d=>{
+    return `<h2>${b}</h2>${ds.map(d=>{
       const rs=S.rodadas.filter(r=>r.mat===d.id);
       const tot=rs.reduce((a,r)=>a+r.total,0), re=rs.reduce((a,r)=>a+r.reais,0);
       const pc=tot?Math.round(re/tot*100):null;
@@ -392,7 +395,7 @@ function cardErro(e,st){
       : `<button class="pri full" onclick="respondeErro('${e.id}')" ${resp===undefined?"disabled":""}>Responder</button>`}
     <h3 style="margin:14px 0 6px;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#6b7c8c">Histórico</h3>
     <table style="margin:0">${e.tent.map((t,i)=>`<tr><td>${i+1}ª · ${br(t.data)}</td>
-      <td>${t.resp===null?"em branco":"marcou "+L[t.resp]}</td>
+      <td>${t.resp===-1?`<span class="mut">${t.f||"origem não registrada"}</span>`:t.resp===null?"em branco":"marcou "+L[t.resp]}</td>
       <td style="text-align:right"><b class="${t.ok?"vg":"vr"}">${t.ok?"acertou":"errou"}</b></td></tr>`).join("")}</table>
     <button class="ter full" style="color:#6b7c8c;border-color:#c9d2da" onclick="erroAberto=null;render()">Fechar</button>
   </div>`;
