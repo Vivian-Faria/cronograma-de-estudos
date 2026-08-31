@@ -103,3 +103,12 @@ canvas{width:100%;display:block}
 
 .ord.vg{background:#2e7d32}.ord.vr{background:#c0392b}.ord.vy{background:#9a7b30}
 .item .nm i.org{display:inline-block;margin-left:6px}
+
+.lks{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:11px}
+.lkbt{flex:1;min-width:150px;text-align:center;background:#0f2b46;color:#fff;text-decoration:none;font-family:Helvetica,Arial,sans-serif;font-size:12px;font-weight:bold;padding:11px 12px;border-radius:4px}
+.lkrow{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #eef1f4;font-size:13.5px}
+.tri{display:flex;gap:7px;margin-top:11px}
+.tri>div{flex:1}
+.tri2{display:flex;gap:7px}
+.tri2 input{flex:1}
+input[type=number],input[type=text]{width:100%;font-family:Georgia,serif;font-size:14px;padding:9px;border:1px solid #c9d2da;border-radius:4px;background:#fff}
