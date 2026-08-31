@@ -21,6 +21,8 @@ async function carregar(){
     }
   } catch(e) { sincOK = false; }
   if (!S.dias.length) S.dias = [...DIAS_INICIAIS];
+  if (!S.rodadas.length) S.rodadas = RODADAS_INICIAIS.map(r=>({...r}));
+  if (!S.discursivas.length) S.discursivas = DISC_INICIAIS.map(d=>({...d}));
   statusSinc();
 }
 async function salvar(){
@@ -94,6 +96,10 @@ function vPainel(){
     ${card(m.dias.length,"dias estudados")}
     ${card(fmtH(m.totalSeg),"tempo total")}
     ${card(m.dominio.toFixed(0)+"%","domínio real", m.dominio>=50?"g":m.dominio>=35?"y":"r")}
+    ${(()=>{const d=S.discursivas.filter(x=>x.tent===1);
+      if(!d.length) return card("—","discursiva");
+      const md=d.reduce((a,x)=>a+x.nota,0)/d.length*4;
+      return card(md.toFixed(0),"discursiva /100", md>=60?"g":"r");})()}
   </div>
   ${cd?`<div class="box dest"><b>${cd.dias} dias</b> até ${cd.rot}${cd.data?" — "+cd.data:""}</div>`:
    `<div class="box aviso">Nenhuma data de edital ou prova registrada. <button class="lk" onclick="irPara('edital')">Definir agora</button></div>`}
@@ -208,12 +214,12 @@ function delSessao(i){ if(confirm("Apagar esta sessão?")){ S.sessoes.splice(i,1
 let discAberta=null, modo="conteudo", dif="media", prova=null;
 function vDisc(){
   if(discAberta) return vModulo();
-  const blocos=["TI","Português","Direito","RLM","DF","Outros"];
+  const blocos=["TI","Português","Direito","RLM","DF","Outros","Arquivo"];
   return `<div class="box aviso">Ordem definida no Cronograma v6. Metade das horas em TI — é o bloco que reprova.</div>
   ${blocos.map(b=>{
     const ds=DISCIPLINAS.filter(d=>d.bloco===b);
     if(!ds.length) return "";
-    return `<h2>${b}</h2>${ds.map(d=>{
+    return `<h2>${b}${b==="Arquivo"?" — fora do edital PC-DF":""}</h2>${ds.map(d=>{
       const rs=S.rodadas.filter(r=>r.mat===d.id);
       const ult=rs.length?rs[rs.length-1]:null;
       const pc=ult?Math.round(ult.reais/ult.total*100):null;
@@ -240,12 +246,15 @@ function vModulo(){
     corpo=prova?vProva():vEscolha(qs);
   } else if(modo==="disc"){
     const ds=DISCURSIVAS.filter(x=>x.m===discAberta);
-    corpo = ds.length? ds.map((x,i)=>`<div class="box"><div class="dtag">Discursiva ${i+1}</div><p>${x.t}</p>
+    const fe=S.discursivas.filter(x=>x.mat===discAberta);
+    corpo = (fe.length?`<h3 style="margin-bottom:8px">Já corrigidas</h3><table><tr><th>Tema</th><th>Tentativa</th><th>Nota /25</th></tr>
+      ${fe.map(x=>`<tr><td>${x.tema}</td><td>${x.tent}ª</td><td><b class="${x.nota>=15?"vg":"vr"}">${x.nota}</b></td></tr>`).join("")}</table>`:"")
+      + (ds.length? `<h3 style="margin:16px 0 8px">Propostas</h3>`+ds.map((x,i)=>`<div class="box"><div class="dtag">Discursiva ${i+1}</div><p>${x.t}</p>
       <p class="mut">10 a 15 linhas, à mão, cronometrada. Menos de 10 linhas ou fuga do tema zera.</p></div>`).join("")
-      : '<div class="box mut">Sem discursivas — reservadas às matérias de TI.</div>';
+      : '<div class="box mut">Sem discursivas — reservadas às matérias de TI.</div>');
   } else {
-    corpo = rs.length? `<table><tr><th>Data</th><th>Nível</th><th>Reais</th><th>Chute</th><th>Erro</th><th>%</th></tr>
-      ${rs.map(r=>`<tr><td>${br(r.data)}</td><td>${r.dif}</td><td>${r.reais}</td><td>${r.chutes}</td><td>${r.total-r.reais-r.chutes}</td>
+    corpo = rs.length? `<table><tr><th>Data</th><th>Origem</th><th>Reais</th><th>Chute</th><th>Erro</th><th>%</th></tr>
+      ${rs.map(r=>`<tr><td>${br(r.data)}</td><td style="font-size:11.5px">${r.f||r.dif}</td><td>${r.reais}</td><td>${r.chutes}</td><td>${r.total-r.reais-r.chutes}</td>
       <td><b class="${r.reais/r.total>=0.6?"vg":r.reais/r.total>=0.35?"vy":"vr"}">${Math.round(r.reais/r.total*100)}%</b></td></tr>`).join("")}</table>
       <p class="mut">Cada rodada fica registrada. Revisar não apaga o histórico.</p>`
       : '<div class="box mut">Nenhuma rodada ainda.</div>';
@@ -315,7 +324,7 @@ function vNotas(){
     const tot=rs.reduce((a,r)=>a+r.total,0), re=rs.reduce((a,r)=>a+r.reais,0);
     const pc=Math.round(re/tot*100);
     return `<div class="box"><div class="mh"><b>${disc(mt)?disc(mt).n:mt}</b><span class="pill ${pc>=60?"g":pc>=35?"y":"r"}">${pc}%</span></div>
-    <table>${rs.map((r,i)=>`<tr><td>${i+1}ª rodada · ${br(r.data)}</td><td>${r.dif}</td><td style="text-align:right"><b>${Math.round(r.reais/r.total*100)}%</b></td></tr>`).join("")}</table></div>`;
+    <table>${rs.map((r,i)=>`<tr><td>${i+1}ª rodada · ${br(r.data)}</td><td style="font-size:11.5px">${r.f||r.dif}</td><td style="text-align:right"><b>${Math.round(r.reais/r.total*100)}%</b></td></tr>`).join("")}</table></div>`;
   }).join("") : '<div class="box mut">Nenhuma rodada respondida ainda.</div>'}
   <h2>Backup</h2>
   <div class="box"><p class="mut">Guarde uma cópia dos dados ou restaure em outro aparelho.</p>
@@ -383,7 +392,10 @@ function linha(id, pts, rot){
   x.fillText(rot, W/2, H-4);
 }
 function serie(){
-  let ac={r:0,t:0}; return S.rodadas.map(x=>{ac.r+=x.reais;ac.t+=x.total;return ac.r/ac.t*100;});
+  const ord=[...S.rodadas].sort((a,b)=>a.data.localeCompare(b.data));
+  const porDia={};
+  ord.forEach(x=>{ porDia[x.data]=porDia[x.data]||{r:0,t:0}; porDia[x.data].r+=x.reais; porDia[x.data].t+=x.total; });
+  return Object.keys(porDia).sort().map(d=>porDia[d].r/porDia[d].t*100);
 }
 function desenhaGrafico(){ linha("graf", serie(), "linha vermelha = corte de 50%"); }
 function desenhaEvolucao(){ linha("evo", serie(), "domínio real acumulado por rodada"); }

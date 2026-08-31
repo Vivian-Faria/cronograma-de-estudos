@@ -26,6 +26,10 @@ const DISCIPLINAS = [
  {id:"gov", n:"Governança de TI", bloco:"TI", ord:24, pronto:false},
  {id:"dleg", n:"Legislação Especial", bloco:"Direito", ord:25, pronto:false},
  {id:"soc", n:"Noções de Primeiros Socorros", bloco:"Outros", ord:26, pronto:false},
+ {id:"crimin", n:"Criminalística", bloco:"Arquivo", ord:90, pronto:false},
+ {id:"medleg", n:"Medicina Legal", bloco:"Arquivo", ord:91, pronto:false},
+ {id:"bio", n:"Biologia", bloco:"Arquivo", ord:92, pronto:false},
+ {id:"fis", n:"Física", bloco:"Arquivo", ord:93, pronto:false},
 ];
 
 // ══════════════ CONTEÚDO — colas dos módulos prontos ══════════════
@@ -142,6 +146,71 @@ const DISCURSIVAS = [
 {m:"seg",t:"Discorra sobre os mecanismos de proteção de rede, abordando obrigatoriamente: <b>a)</b> a diferença funcional entre firewall, IDS e IPS; <b>b)</b> em que camada atua cada um e com base em que critério decide; <b>c)</b> por que a adoção isolada de apenas um deles é insuficiente."},
 {m:"seg",t:"Discorra sobre o ransomware, abordando obrigatoriamente: <b>a)</b> seu funcionamento; <b>b)</b> por que o antivírus não reverte o ataque consumado; <b>c)</b> por que a política de backup é a medida mais eficaz de resposta."},
 {m:"seg",t:"Discorra sobre o ataque de negação de serviço distribuído, abordando obrigatoriamente: <b>a)</b> qual pilar da segurança é atingido; <b>b)</b> como o SYN flood se aproveita do estabelecimento de conexão TCP; <b>c)</b> o papel das botnets."},
+];
+
+
+// ══════════════ HISTÓRICO — rodadas já realizadas ══════════════
+// f=fonte · d=nível · t=total · r=acertos reais · c=chutes certos
+const RODADAS_INICIAIS = [
+// ── Simulado FGV 2025 (PC-MG Área II) — linha de base
+{data:"2026-08-23", mat:"pt1",    dif:"media", total:10, reais:5, chutes:0, f:"Simulado FGV 2025"},
+{data:"2026-08-23", mat:"rlm1",   dif:"media", total:10, reais:1, chutes:4, f:"Simulado FGV 2025"},
+{data:"2026-08-23", mat:"dcon",   dif:"media", total:5,  reais:0, chutes:1, f:"Simulado FGV 2025"},
+{data:"2026-08-23", mat:"dpen",   dif:"media", total:5,  reais:2, chutes:0, f:"Simulado FGV 2025"},
+{data:"2026-08-23", mat:"lodf",   dif:"media", total:5,  reais:2, chutes:0, f:"Simulado FGV 2025 (Lei Orgânica PCMG)"},
+{data:"2026-08-23", mat:"crimin", dif:"media", total:5,  reais:4, chutes:0, f:"Simulado FGV 2025"},
+{data:"2026-08-23", mat:"medleg", dif:"media", total:5,  reais:2, chutes:1, f:"Simulado FGV 2025"},
+{data:"2026-08-23", mat:"bio",    dif:"media", total:5,  reais:1, chutes:0, f:"Simulado FGV 2025"},
+{data:"2026-08-23", mat:"fis",    dif:"media", total:4,  reais:0, chutes:1, f:"Simulado FGV 2025"},
+{data:"2026-08-23", mat:"so",     dif:"media", total:4,  reais:1, chutes:1, f:"Simulado FGV 2025 (Linux, RAID, arquivos)"},
+{data:"2026-08-23", mat:"redes1", dif:"media", total:1,  reais:1, chutes:0, f:"Simulado FGV 2025 (switch camada 2)"},
+{data:"2026-08-23", mat:"redes2", dif:"media", total:1,  reais:0, chutes:0, f:"Simulado FGV 2025 (WPA2)"},
+{data:"2026-08-23", mat:"dleg",   dif:"media", total:1,  reais:1, chutes:0, f:"Simulado FGV 2025 (Marco Civil)"},
+{data:"2026-08-23", mat:"arq",    dif:"media", total:3,  reais:1, chutes:0, f:"Simulado FGV 2025"},
+{data:"2026-08-23", mat:"nuvem",  dif:"media", total:2,  reais:2, chutes:0, f:"Simulado FGV 2025"},
+{data:"2026-08-23", mat:"prog",   dif:"media", total:3,  reais:0, chutes:1, f:"Simulado FGV 2025"},
+{data:"2026-08-23", mat:"algo",   dif:"media", total:2,  reais:1, chutes:0, f:"Simulado FGV 2025"},
+{data:"2026-08-23", mat:"gov",    dif:"media", total:3,  reais:2, chutes:0, f:"Simulado FGV 2025"},
+{data:"2026-08-23", mat:"bd",     dif:"media", total:1,  reais:0, chutes:0, f:"Simulado FGV 2025"},
+{data:"2026-08-23", mat:"seg",    dif:"media", total:2,  reais:1, chutes:0, f:"Simulado FGV 2025"},
+{data:"2026-08-23", mat:"cripto", dif:"media", total:1,  reais:0, chutes:0, f:"Simulado FGV 2025"},
+// ── Questões externas de redes (plataforma de questões)
+{data:"2026-08-29", mat:"redes1", dif:"media", total:17, reais:9, chutes:4, f:"Externas — plataforma"},
+{data:"2026-08-29", mat:"redes2", dif:"media", total:9,  reais:6, chutes:0, f:"Externas — plataforma"},
+// ── Partes B dos módulos
+{data:"2026-08-29", mat:"redes1", dif:"media", total:5, reais:4, chutes:0, f:"Módulo 01 — Parte B"},
+{data:"2026-08-29", mat:"redes2", dif:"media", total:4, reais:3, chutes:0, f:"Módulo 02 — Parte B"},
+{data:"2026-08-30", mat:"pt1",    dif:"media", total:5, reais:5, chutes:0, f:"Módulo 03 — Parte B"},
+// ── Simulado PC-DF completo
+{data:"2026-08-29", mat:"pt1",     dif:"media", total:8,  reais:5, chutes:0, f:"Simulado PC-DF"},
+{data:"2026-08-29", mat:"rlm1",    dif:"media", total:6,  reais:1, chutes:1, f:"Simulado PC-DF"},
+{data:"2026-08-29", mat:"df1",     dif:"media", total:4,  reais:1, chutes:2, f:"Simulado PC-DF"},
+{data:"2026-08-29", mat:"lodf",    dif:"media", total:3,  reais:0, chutes:2, f:"Simulado PC-DF"},
+{data:"2026-08-29", mat:"dadm",    dif:"media", total:4,  reais:0, chutes:4, f:"Simulado PC-DF"},
+{data:"2026-08-29", mat:"dcon",    dif:"media", total:4,  reais:1, chutes:2, f:"Simulado PC-DF"},
+{data:"2026-08-29", mat:"dpen",    dif:"media", total:4,  reais:1, chutes:1, f:"Simulado PC-DF"},
+{data:"2026-08-29", mat:"dpro",    dif:"media", total:4,  reais:3, chutes:1, f:"Simulado PC-DF"},
+{data:"2026-08-29", mat:"dleg",    dif:"media", total:3,  reais:0, chutes:3, f:"Simulado PC-DF"},
+{data:"2026-08-29", mat:"forense1",dif:"media", total:10, reais:0, chutes:9, f:"Simulado PC-DF"},
+{data:"2026-08-29", mat:"arq",     dif:"media", total:8,  reais:1, chutes:3, f:"Simulado PC-DF"},
+{data:"2026-08-29", mat:"redes1",  dif:"media", total:5,  reais:4, chutes:1, f:"Simulado PC-DF"},
+{data:"2026-08-29", mat:"cripto",  dif:"media", total:4,  reais:0, chutes:1, f:"Simulado PC-DF"},
+{data:"2026-08-29", mat:"bd",      dif:"media", total:4,  reais:1, chutes:0, f:"Simulado PC-DF"},
+{data:"2026-08-29", mat:"prog",    dif:"media", total:3,  reais:0, chutes:0, f:"Simulado PC-DF (desenv. seguro)"},
+{data:"2026-08-29", mat:"so",      dif:"media", total:4,  reais:0, chutes:1, f:"Simulado PC-DF"},
+{data:"2026-08-29", mat:"nuvem",   dif:"media", total:2,  reais:0, chutes:0, f:"Simulado PC-DF"},
+];
+
+// ══════════════ DISCURSIVAS JÁ CORRIGIDAS ══════════════
+const DISC_INICIAIS = [
+{data:"2026-08-29", mat:"seg", tema:"Ameaça × vulnerabilidade × risco", nota:17.5, tent:1},
+{data:"2026-08-29", mat:"seg", tema:"Firewall × IDS × IPS", nota:16.5, tent:1},
+{data:"2026-08-29", mat:"seg", tema:"Firewall × IDS × IPS (refação)", nota:22.5, tent:4},
+{data:"2026-08-29", mat:"seg", tema:"Ransomware e backup", nota:19.5, tent:1},
+{data:"2026-08-29", mat:"seg", tema:"Ransomware e backup (refação)", nota:22.0, tent:2},
+{data:"2026-08-29", mat:"seg", tema:"Engenharia social", nota:20.0, tent:1},
+{data:"2026-08-29", mat:"seg", tema:"Engenharia social (refação)", nota:21.75, tent:2},
+{data:"2026-08-30", mat:"seg", tema:"DDoS, SYN flood e botnets", nota:20.6, tent:1},
 ];
 
 // ══════════════ DIAS DE ESTUDO JÁ REGISTRADOS ══════════════
