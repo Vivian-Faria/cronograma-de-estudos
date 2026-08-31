@@ -1,5 +1,5 @@
 // ════════════ ESTADO E PERSISTÊNCIA ════════════
-let S = { sessoes:[], rodadas:[], dias:[], config:{edital:"",prova:""}, discursivas:[] };
+let S = { sessoes:[], rodadas:[], dias:[], config:{edital:"",prova:""}, discursivas:[], erros:[] };
 let sincOK = false, salvando = false, pendente = false;
 
 const LS = "estudos-pcdf-v1";
@@ -23,6 +23,7 @@ async function carregar(){
   if (!S.dias.length) S.dias = [...DIAS_INICIAIS];
   if (!S.rodadas.length) S.rodadas = RODADAS_INICIAIS.map(r=>({...r}));
   if (!S.discursivas.length) S.discursivas = DISC_INICIAIS.map(d=>({...d}));
+  if (!S.erros) S.erros = [];
   statusSinc();
 }
 async function salvar(){
@@ -45,7 +46,7 @@ function statusSinc(){
 }
 
 // ════════════ NAVEGAÇÃO ════════════
-const ABAS = [["painel","Painel"],["cal","Calendário"],["timer","Cronômetro"],["disc","Disciplinas"],["notas","Notas"],["edital","Edital"]];
+const ABAS = [["painel","Painel"],["cal","Calendário"],["timer","Cronômetro"],["disc","Disciplinas"],["erros","Erros"],["notas","Notas"],["edital","Edital"]];
 let abaAtual = "painel";
 function irPara(a){ abaAtual=a;
   document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("at", b.dataset.a===a));
@@ -80,7 +81,7 @@ function metricas(){
 // ════════════ RENDER ════════════
 function render(){
   const el = document.getElementById("app");
-  el.innerHTML = ({painel:vPainel, cal:vCal, timer:vTimer, disc:vDisc, notas:vNotas, edital:vEdital})[abaAtual]();
+  el.innerHTML = ({painel:vPainel, cal:vCal, timer:vTimer, disc:vDisc, erros:vErros, notas:vNotas, edital:vEdital})[abaAtual]();
   if (abaAtual==="painel") desenhaGrafico();
   if (abaAtual==="notas") desenhaEvolucao();
   if (abaAtual==="timer") tickUI();
@@ -121,6 +122,11 @@ function vPainel(){
   <div class="box"><canvas id="graf" height="180"></canvas>
   <p class="mut" style="margin-top:8px;font-size:12px">Eixo em tempo real, do primeiro dia de estudo até hoje. O ponto vazio é o início, sem domínio medido. ${S.config.prova||S.config.edital?"A linha vermelha vertical marca a prova.":"Registre a data da prova para ver quanto tempo resta."}</p></div>
 
+  ${(()=>{ if(!S.erros.length) return "";
+    const cls=S.erros.map(e=>({st:statusErro(e)}));
+    const pen=cls.filter(x=>x.st.k==="pen").length, rei=cls.filter(x=>x.st.k==="rei"||x.st.k==="reg").length;
+    if(!pen&&!rei) return "";
+    return `<div class="box aviso"><b>${pen+rei} ${pen+rei===1?"questão espera":"questões esperam"} no caderno de erros</b>${rei?` — ${rei} ${rei===1?"reincidente":"reincidentes"}`:""}. <button class="lk" onclick="irPara('erros')">Abrir</button></div>`;})()}
   <h2>Comportamento</h2>
   <table>
     <tr><td>Constância</td><td><b>${m.aderencia.toFixed(0)}%</b> dos dias desde 21/07/2026</td></tr>
@@ -306,7 +312,11 @@ function vProva(){
 }
 function corrige(){ prova.fim=true;
   let reais=0,chutes=0;
-  prova.qs.forEach((q,i)=>{ if(prova.resp[i]===q.g){ prova.chute[i]?chutes++:reais++; } });
+  prova.qs.forEach((q,i)=>{
+    const r=prova.resp[i];
+    if(r===q.g){ prova.chute[i]?chutes++:reais++; }
+    else registraErro(q, r);
+  });
   S.rodadas.push({data:hoje(), mat:discAberta, dif, total:prova.qs.length, reais, chutes});
   if(!S.dias.includes(hoje())) S.dias.push(hoje());
   salvar(); render();
@@ -321,6 +331,79 @@ function vResultado(){
     <div class="cards">${card(r.reais,"reais","g")}${card(r.chutes,"chute","y")}${card(r.total-r.reais-r.chutes,"erros","r")}${card(pc+"%","domínio")}</div>
     ${cmp}<p class="mut">Registrado no histórico da matéria.</p>
     <button class="sec full" onclick="prova=null;render()">Nova rodada</button></div>`;
+}
+
+
+// ════════════ CADERNO DE ERROS ════════════
+function qid(q){ let h=0; const t=q.m+"|"+q.e;
+  for(let i=0;i<t.length;i++){ h=((h<<5)-h+t.charCodeAt(i))|0; }
+  return q.m+"_"+Math.abs(h).toString(36); }
+
+function registraErro(q, resp){
+  const id=qid(q);
+  let e=S.erros.find(x=>x.id===id);
+  if(!e){ e={id, m:q.m, e:q.e, a:q.a, g:q.g, j:q.j, d:q.d, tent:[]}; S.erros.push(e); }
+  e.tent.push({data:hoje(), resp:(resp===undefined?null:resp), ok:false});
+}
+function statusErro(e){
+  const t=e.tent, u=t[t.length-1];
+  const acertos=t.filter(x=>x.ok).length;
+  const errosSeg=(()=>{ let n=0; for(let i=t.length-1;i>=0;i--){ if(t[i].ok) break; n++; } return n; })();
+  if(u.ok) return acertos>1||t.length>2 ? {k:"dom",l:"dominada",c:"g"} : {k:"dom",l:"dominada",c:"g"};
+  if(acertos>0) return {k:"reg",l:"acertou antes e errou de novo",c:"r"};
+  if(errosSeg>=2) return {k:"rei",l:`errada ${errosSeg}× seguidas`,c:"r"};
+  return {k:"pen",l:"pendente",c:"y"};
+}
+let filtroErro="todas", erroAberto=null, erroResp={};
+
+function vErros(){
+  if(!S.erros.length) return `<div class="box aviso"><b>Caderno vazio.</b> Toda questão que você errar nas rodadas vem parar aqui automaticamente, e nunca sai — mesmo depois de acertar.</div>`;
+  const cls=S.erros.map(e=>({e, st:statusErro(e)}));
+  const cont={todas:cls.length, pen:cls.filter(x=>x.st.k==="pen").length,
+    rei:cls.filter(x=>x.st.k==="rei"||x.st.k==="reg").length, dom:cls.filter(x=>x.st.k==="dom").length};
+  const filt=filtroErro==="todas"?cls:cls.filter(x=>filtroErro==="rei"?(x.st.k==="rei"||x.st.k==="reg"):x.st.k===filtroErro);
+  const mats=[...new Set(filt.map(x=>x.e.m))];
+  return `<div class="cards">
+    ${card(cont.todas,"no caderno")}${card(cont.pen,"pendentes","y")}
+    ${card(cont.rei,"reincidentes","r")}${card(cont.dom,"dominadas","g")}</div>
+  <div class="box aviso" style="font-size:12.5px">Nada sai daqui. Uma questão acertada fica marcada como <b>dominada</b>, mas o registro permanece — é assim que se distingue quem aprendeu de quem insiste no erro.</div>
+  <div class="nivs" style="margin-bottom:12px">
+    ${[["todas","Todas",cont.todas],["pen","Pendentes",cont.pen],["rei","Reincidentes",cont.rei],["dom","Dominadas",cont.dom]].map(([k,l,n])=>
+      `<button class="niv ${filtroErro===k?"at":""}" onclick="filtroErro='${k}';erroAberto=null;render()">${l}<em>${n}</em></button>`).join("")}
+  </div>
+  ${filt.length? mats.map(mt=>`<h2>${disc(mt)?disc(mt).n:mt}</h2>
+    ${filt.filter(x=>x.e.m===mt).map(x=>cardErro(x.e,x.st)).join("")}`).join("")
+    : '<div class="box mut">Nenhuma questão neste filtro.</div>'}`;
+}
+function cardErro(e,st){
+  const ab=erroAberto===e.id, L="ABCDE";
+  const ult=e.tent[e.tent.length-1];
+  if(!ab) return `<div class="item" onclick="abreErro('${e.id}')">
+    <span class="ord ${st.c==="g"?"vg":st.c==="r"?"vr":"vy"}">${e.tent.length}</span>
+    <span class="nm">${e.e.length>92?e.e.slice(0,92)+"…":e.e}<i class="org ${st.c==="g"?"est":"sim"}">${st.l}</i></span>
+    <span class="pill ${st.c}">${st.k==="dom"?"✓":"?"}</span></div>`;
+  const resp=erroResp[e.id], mostrou=resp!==undefined&&resp!==null&&erroResp[e.id+"_fim"];
+  return `<div class="q" style="border-color:#0f2b46">
+    <div class="qh"><span class="qn">${e.tent.length}ª</span><span>${e.e}</span></div>
+    ${e.a.map((a,j)=>`<label class="alt ${mostrou&&j===e.g?"cert":""}">
+      <input type="radio" name="e${e.id}" ${resp===j?"checked":""} ${mostrou?"disabled":""} onchange="erroResp['${e.id}']=${j}"><b>${L[j]}</b><span>${a}</span></label>`).join("")}
+    ${mostrou? `<div class="fb ${resp===e.g?"ok":"no"}">${resp===e.g
+        ? `<b>Correta.</b> ${e.j}` : `<b>Errou de novo.</b> Marcou ${L[resp]}; o gabarito é <b>${L[e.g]}</b>. ${e.j}`}</div>`
+      : `<button class="pri full" onclick="respondeErro('${e.id}')" ${resp===undefined?"disabled":""}>Responder</button>`}
+    <h3 style="margin:14px 0 6px;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#6b7c8c">Histórico</h3>
+    <table style="margin:0">${e.tent.map((t,i)=>`<tr><td>${i+1}ª · ${br(t.data)}</td>
+      <td>${t.resp===null?"em branco":"marcou "+L[t.resp]}</td>
+      <td style="text-align:right"><b class="${t.ok?"vg":"vr"}">${t.ok?"acertou":"errou"}</b></td></tr>`).join("")}</table>
+    <button class="ter full" style="color:#6b7c8c;border-color:#c9d2da" onclick="erroAberto=null;render()">Fechar</button>
+  </div>`;
+}
+function abreErro(id){ erroAberto=id; delete erroResp[id]; delete erroResp[id+"_fim"]; render(); }
+function respondeErro(id){
+  const e=S.erros.find(x=>x.id===id), r=erroResp[id];
+  e.tent.push({data:hoje(), resp:r, ok:r===e.g});
+  erroResp[id+"_fim"]=true;
+  if(!S.dias.includes(hoje())) S.dias.push(hoje());
+  salvar(); render();
 }
 
 // ─── NOTAS ───
