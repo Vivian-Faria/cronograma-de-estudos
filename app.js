@@ -1,5 +1,5 @@
 // ════════════ ESTADO E PERSISTÊNCIA ════════════
-let S = { sessoes:[], rodadas:[], dias:[], config:{edital:"",prova:""}, discursivas:[], erros:[] };
+let S = { sessoes:[], rodadas:[], dias:[], config:{edital:"",prova:""}, discursivas:[], erros:[], links:[] };
 let sincOK = false, salvando = false, pendente = false;
 
 const LS = "estudos-pcdf-v1";
@@ -36,6 +36,8 @@ async function carregar(){
   if (!S.rodadas.length) S.rodadas = RODADAS_INICIAIS.map(r=>({...r}));
   if (!S.discursivas.length) S.discursivas = DISC_INICIAIS.map(d=>({...d}));
   if (!S.erros) S.erros = [];
+  if (!S.links || !S.links.length) S.links = [{nome:"Meus cadernos", url:"https://www.tecconcursos.com.br/questoes/pastas/7517991"},
+    {nome:"Estatísticas de desempenho", url:"https://www.tecconcursos.com.br/estatisticas/desempenho"}];
   if (!S.erros.length && typeof ERROS_INICIAIS !== "undefined")
     S.erros = ERROS_INICIAIS.map(x=>({ id:qid(x), m:x.m, e:x.e, a:x.a, g:x.g, j:x.j, d:x.d,
       tent:[{data:x.data, resp:(x.resp===undefined?-1:x.resp), ok:false, f:x.f}] }));
@@ -152,6 +154,12 @@ function vPainel(){
     const pen=cls.filter(x=>x.st.k==="pen").length, rei=cls.filter(x=>x.st.k==="rei"||x.st.k==="reg").length;
     if(!pen&&!rei) return "";
     return `<div class="box aviso"><b>${pen+rei} ${pen+rei===1?"questão espera":"questões esperam"} no caderno de erros</b>${rei?` — ${rei} ${rei===1?"reincidente":"reincidentes"}`:""}. <button class="lk" onclick="irPara('erros')">Abrir</button></div>`;})()}
+  <h2>Questões externas</h2>
+  <div class="box">
+    <div class="lks">${S.links.map(l=>`<a class="lkbt" href="${l.url}" target="_blank" rel="noopener">${l.nome} ↗</a>`).join("")}</div>
+    <button class="sec full" onclick="irPara('notas')">Registrar uma rodada feita fora</button>
+  </div>
+
   <h2>Comportamento</h2>
   <table>
     <tr><td>Constância</td><td><b>${m.aderencia.toFixed(0)}%</b> dos dias desde 21/07/2026</td></tr>
@@ -445,6 +453,33 @@ function vNotas(){
     return `<div class="box"><div class="mh"><b>${disc(mt)?disc(mt).n:mt}</b><span class="pill ${pc>=60?"g":pc>=35?"y":"r"}">${pc}%</span></div>
     <table>${rs.map((r,i)=>`<tr><td>${i+1}ª rodada · ${br(r.data)}</td><td style="font-size:11.5px">${r.f||r.dif}</td><td style="text-align:right"><b>${Math.round(r.reais/r.total*100)}%</b></td></tr>`).join("")}</table></div>`;
   }).join("") : '<div class="box mut">Nenhuma rodada respondida ainda.</div>'}
+  <h2>Rodadas feitas fora</h2>
+  <div class="box">
+    <div class="lks">${S.links.map((l,i)=>`<a class="lkbt" href="${l.url}" target="_blank" rel="noopener">${l.nome} ↗</a>`).join("")}</div>
+    <p class="mut">Não é possível puxar o desempenho automaticamente: a plataforma exige login e o navegador bloqueia a leitura entre domínios. Registre aqui o resultado depois de responder.</p>
+    <label class="lb">Matéria</label>
+    <select id="exm">${DISCIPLINAS.map(d=>`<option value="${d.id}">${d.ord}. ${d.n}</option>`).join("")}</select>
+    <div class="tri">
+      <div><label class="lb">Questões</label><input type="number" id="ext" min="1" value="10"></div>
+      <div><label class="lb">Acertos</label><input type="number" id="exa" min="0" value="0"></div>
+      <div><label class="lb">Dos quais chute</label><input type="number" id="exc" min="0" value="0"></div>
+    </div>
+    <label class="lb" style="margin-top:12px">Origem</label>
+    <input type="text" id="exf" value="TEC Concursos" placeholder="onde você respondeu">
+    <button class="pri full" onclick="salvaExterna()">Registrar rodada</button>
+    <p class="mut" style="margin-top:9px">Informe em <b>acertos</b> o total, e em <b>chute</b> quantos desses não vieram de domínio. A plataforma desconta sozinha.</p>
+  </div>
+
+  <h2>Meus links</h2>
+  <div class="box">
+    ${S.links.map((l,i)=>`<div class="lkrow"><span>${l.nome}</span><button class="x" onclick="delLink(${i})">×</button></div>`).join("")}
+    <div class="tri2" style="margin-top:9px">
+      <input type="text" id="lkn" placeholder="nome do caderno">
+      <input type="text" id="lku" placeholder="https://...">
+    </div>
+    <button class="sec full" onclick="addLink()">Adicionar link</button>
+  </div>
+
   <h2>Backup</h2>
   <div class="box"><p class="mut">Guarde uma cópia dos dados ou restaure em outro aparelho.</p>
   <button class="sec" onclick="exportar()">Exportar</button>
@@ -463,6 +498,23 @@ function importar(inp){
     catch(x){ alert("Arquivo inválido."); } };
   r.readAsText(f);
 }
+
+function salvaExterna(){
+  const m=document.getElementById("exm").value;
+  const t=+document.getElementById("ext").value, a=+document.getElementById("exa").value, c=+document.getElementById("exc").value;
+  const f=document.getElementById("exf").value.trim()||"Externa";
+  if(!t||a>t||c>a){ alert("Confira os números: acertos não podem passar do total, e chutes não podem passar dos acertos."); return; }
+  S.rodadas.push({data:hoje(), mat:m, dif:"media", total:t, reais:a-c, chutes:c, f});
+  if(!S.dias.includes(hoje())) S.dias.push(hoje());
+  salvar(); render();
+  alert(`Registrado: ${a-c} ${a-c===1?"acerto real":"acertos reais"} em ${t} questões.`);
+}
+function addLink(){
+  const n=document.getElementById("lkn").value.trim(), u=document.getElementById("lku").value.trim();
+  if(!n||!/^https?:\/\//.test(u)){ alert("Informe um nome e um endereço começando com https://"); return; }
+  S.links.push({nome:n,url:u}); salvar(); render();
+}
+function delLink(i){ S.links.splice(i,1); salvar(); render(); }
 
 // ─── EDITAL ───
 function vEdital(){
