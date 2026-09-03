@@ -206,7 +206,7 @@ const DISC_INICIAIS = [
 ];
 
 // ══════════════ DIAS DE ESTUDO JÁ REGISTRADOS ══════════════
-const DIAS_INICIAIS = ["2026-07-21","2026-07-31","2026-08-19","2026-08-20","2026-08-23","2026-08-29","2026-08-30","2026-08-31"];
+const DIAS_INICIAIS = ["2026-07-21","2026-07-31","2026-08-19","2026-08-20","2026-08-23","2026-08-29","2026-08-30","2026-09-02"];
 const DATA_INICIO = "2026-07-21";
 
 // ══════════════ ERROS JÁ REGISTRADOS ══════════════
@@ -300,20 +300,20 @@ DISCURSIVAS.push(
 
 // ══════════════ 2ª APLICAÇÃO DA PROVA FGV — 31/08/2026 ══════════════
 const RODADAS_FGV2 = [
-{data:"2026-08-31", mat:"pt1",     dif:"media", total:10, reais:7, chutes:0, f:"Simulado FGV — 2ª aplicação"},
-{data:"2026-08-31", mat:"dcon",    dif:"media", total:5,  reais:2, chutes:0, f:"Simulado FGV — 2ª aplicação"},
-{data:"2026-08-31", mat:"dpen",    dif:"media", total:2,  reais:1, chutes:0, f:"Simulado FGV — 2ª aplicação"},
-{data:"2026-08-31", mat:"dpro",    dif:"media", total:3,  reais:3, chutes:0, f:"Simulado FGV — 2ª aplicação"},
-{data:"2026-08-31", mat:"dleg",    dif:"media", total:7,  reais:6, chutes:0, f:"Simulado FGV — 2ª aplicação"},
-{data:"2026-08-31", mat:"rlm1",    dif:"media", total:2,  reais:2, chutes:0, f:"Simulado FGV — 2ª aplicação"},
-{data:"2026-08-31", mat:"so",      dif:"media", total:8,  reais:6, chutes:0, f:"Simulado FGV — 2ª aplicação"},
-{data:"2026-08-31", mat:"bd",      dif:"media", total:1,  reais:1, chutes:0, f:"Simulado FGV — 2ª aplicação"},
-{data:"2026-08-31", mat:"prog",    dif:"media", total:5,  reais:1, chutes:0, f:"Simulado FGV — 2ª aplicação"},
-{data:"2026-08-31", mat:"gov",     dif:"media", total:2,  reais:1, chutes:0, f:"Simulado FGV — 2ª aplicação"},
-{data:"2026-08-31", mat:"arq",     dif:"media", total:1,  reais:1, chutes:0, f:"Simulado FGV — 2ª aplicação"},
-{data:"2026-08-31", mat:"redes1",  dif:"media", total:1,  reais:0, chutes:0, f:"Simulado FGV — 2ª aplicação"},
-{data:"2026-08-31", mat:"seg",     dif:"media", total:4,  reais:2, chutes:0, f:"Simulado FGV — 2ª aplicação"},
+{data:"2026-09-02", mat:"pt1",     dif:"media", total:10, reais:7, chutes:0, f:"Simulado FGV — 2ª aplicação"},
+{data:"2026-09-02", mat:"dcon",    dif:"media", total:5,  reais:2, chutes:0, f:"Simulado FGV — 2ª aplicação"},
+{data:"2026-09-02", mat:"dpen",    dif:"media", total:2,  reais:1, chutes:0, f:"Simulado FGV — 2ª aplicação"},
+{data:"2026-09-02", mat:"dpro",    dif:"media", total:3,  reais:3, chutes:0, f:"Simulado FGV — 2ª aplicação"},
+{data:"2026-09-02", mat:"dleg",    dif:"media", total:7,  reais:6, chutes:0, f:"Simulado FGV — 2ª aplicação"},
+{data:"2026-09-02", mat:"rlm1",    dif:"media", total:2,  reais:2, chutes:0, f:"Simulado FGV — 2ª aplicação"},
+{data:"2026-09-02", mat:"so",      dif:"media", total:8,  reais:6, chutes:0, f:"Simulado FGV — 2ª aplicação"},
+{data:"2026-09-02", mat:"bd",      dif:"media", total:1,  reais:1, chutes:0, f:"Simulado FGV — 2ª aplicação"},
+{data:"2026-09-02", mat:"prog",    dif:"media", total:5,  reais:1, chutes:0, f:"Simulado FGV — 2ª aplicação"},
+{data:"2026-09-02", mat:"gov",     dif:"media", total:2,  reais:1, chutes:0, f:"Simulado FGV — 2ª aplicação"},
+{data:"2026-09-02", mat:"arq",     dif:"media", total:1,  reais:1, chutes:0, f:"Simulado FGV — 2ª aplicação"},
+{data:"2026-09-02", mat:"redes1",  dif:"media", total:1,  reais:0, chutes:0, f:"Simulado FGV — 2ª aplicação"},
+{data:"2026-09-02", mat:"seg",     dif:"media", total:4,  reais:2, chutes:0, f:"Simulado FGV — 2ª aplicação"},
 // deixadas em branco — na prova real, branco vale zero
-{data:"2026-08-31", mat:"rlm2",    dif:"media", total:8,  reais:0, chutes:0, f:"FGV 2ª aplicação — em branco"},
-{data:"2026-08-31", mat:"gov",     dif:"media", total:1,  reais:0, chutes:0, f:"FGV 2ª aplicação — em branco"},
+{data:"2026-09-02", mat:"rlm2",    dif:"media", total:8,  reais:0, chutes:0, f:"FGV 2ª aplicação — em branco"},
+{data:"2026-09-02", mat:"gov",     dif:"media", total:1,  reais:0, chutes:0, f:"FGV 2ª aplicação — em branco"},
 ];
