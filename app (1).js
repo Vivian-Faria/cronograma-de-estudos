@@ -1,5 +1,5 @@
 // ════════════ ESTADO E PERSISTÊNCIA ════════════
-let S = { sessoes:[], rodadas:[], dias:[], config:{edital:"",prova:""}, discursivas:[], erros:[], links:[] };
+let S = { sessoes:[], rodadas:[], dias:[], config:{edital:"",prova:""}, discursivas:[] };
 let sincOK = false, salvando = false, pendente = false;
 
 const LS = "estudos-pcdf-v1";
@@ -9,56 +9,30 @@ const fmtHm = s => { const h=Math.floor(s/3600), m=Math.floor(s%3600/60), g=s%60
   return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(g).padStart(2,"0")}`; };
 const disc = id => DISCIPLINAS.find(d=>d.id===id);
 
-let DIAG = {status:"—", msg:"ainda não testado", quando:null};
-
 async function carregar(){
-  let loc=null;
-  const raw = localStorage.getItem(LS);
-  if (raw) { try { loc = JSON.parse(raw); } catch(e){} }
-  let rem=null;
+  const local = localStorage.getItem(LS);
+  if (local) { try { S = {...S, ...JSON.parse(local)}; } catch(e){} }
   try {
-    const r = await fetch("/api/store", {cache:"no-store"});
-    const txt = await r.text();
-    let j=null; try{ j=JSON.parse(txt); }catch(e){}
-    if (r.ok && j && j.ok) { rem = j.dados; sincOK = true; DIAG={status:r.status, msg:"servidor respondendo", quando:Date.now()}; }
-    else { sincOK=false; DIAG={status:r.status, msg:(j&&(j.dica||j.detalhe||j.erro))||txt.slice(0,180)||"resposta inesperada", quando:Date.now()}; }
-  } catch(e) { sincOK=false; DIAG={status:"sem resposta", msg:String(e&&e.message||e), quando:Date.now()}; }
-
-  // vence o mais recente; na dúvida, o que tiver mais registros
-  const peso = o => o ? (o.rodadas||[]).length + (o.sessoes||[]).length + (o.erros||[]).length : -1;
-  let base = null;
-  if (loc && rem) {
-    const tl = loc.atualizadoEm||0, tr = rem.atualizadoEm||0;
-    base = tr>tl ? rem : tl>tr ? loc : (peso(rem)>=peso(loc)?rem:loc);
-  } else base = rem || loc;
-  if (base) S = {...S, ...base};
+    const r = await fetch("/api/store");
+    if (r.ok) {
+      const d = await r.json();
+      if (d && d.sessoes) S = {...S, ...d};
+      sincOK = true;
+    }
+  } catch(e) { sincOK = false; }
   if (!S.dias.length) S.dias = [...DIAS_INICIAIS];
   if (!S.rodadas.length) S.rodadas = RODADAS_INICIAIS.map(r=>({...r}));
-  if (typeof RODADAS_FGV2!=="undefined" && !S.rodadas.some(r=>r.f==="Simulado FGV — 2ª aplicação")){
-    S.rodadas = S.rodadas.concat(RODADAS_FGV2.map(r=>({...r})));
-    RODADAS_FGV2.forEach(r=>{ if(!S.dias.includes(r.data)) S.dias.push(r.data); });
-  }
   if (!S.discursivas.length) S.discursivas = DISC_INICIAIS.map(d=>({...d}));
-  if (!S.erros) S.erros = [];
-  if (!S.links || !S.links.length) S.links = [{nome:"Meus cadernos", url:"https://www.tecconcursos.com.br/questoes/pastas/7517991"},
-    {nome:"Estatísticas de desempenho", url:"https://www.tecconcursos.com.br/estatisticas/desempenho"}];
-  if (!S.erros.length && typeof ERROS_INICIAIS !== "undefined")
-    S.erros = ERROS_INICIAIS.map(x=>({ id:qid(x), m:x.m, e:x.e, a:x.a, g:x.g, j:x.j, d:x.d,
-      tent:[{data:x.data, resp:(x.resp===undefined?-1:x.resp), ok:false, f:x.f}] }));
   statusSinc();
 }
 async function salvar(){
-  S.atualizadoEm = Date.now();
   localStorage.setItem(LS, JSON.stringify(S));
   if (salvando) { pendente = true; return; }
   salvando = true;
   try {
     const r = await fetch("/api/store", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(S)});
-    const txt = await r.text(); let j=null; try{ j=JSON.parse(txt); }catch(e){}
-    sincOK = r.ok && j && j.ok;
-    DIAG = sincOK ? {status:r.status, msg:"gravado no servidor", quando:Date.now()}
-                  : {status:r.status, msg:(j&&(j.dica||j.detalhe||j.erro))||txt.slice(0,180), quando:Date.now()};
-  } catch(e) { sincOK=false; DIAG={status:"sem resposta", msg:String(e&&e.message||e), quando:Date.now()}; }
+    sincOK = r.ok;
+  } catch(e) { sincOK = false; }
   salvando = false;
   statusSinc();
   if (pendente) { pendente = false; salvar(); }
@@ -68,16 +42,10 @@ function statusSinc(){
   if (!el) return;
   el.textContent = sincOK ? "sincronizado" : "só neste aparelho";
   el.className = "sinc " + (sincOK ? "on" : "off");
-  el.onclick = () => irPara("edital");
-  el.style.cursor = "pointer";
-}
-async function forcarSinc(){
-  const b=document.getElementById("bsinc"); if(b){b.disabled=true;b.textContent="Sincronizando…";}
-  await carregar(); await salvar(); render();
 }
 
 // ════════════ NAVEGAÇÃO ════════════
-const ABAS = [["painel","Painel"],["cal","Calendário"],["timer","Cronômetro"],["disc","Disciplinas"],["erros","Erros"],["notas","Notas"],["edital","Edital"]];
+const ABAS = [["painel","Painel"],["cal","Calendário"],["timer","Cronômetro"],["disc","Disciplinas"],["notas","Notas"],["edital","Edital"]];
 let abaAtual = "painel";
 function irPara(a){ abaAtual=a;
   document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("at", b.dataset.a===a));
@@ -112,7 +80,7 @@ function metricas(){
 // ════════════ RENDER ════════════
 function render(){
   const el = document.getElementById("app");
-  el.innerHTML = ({painel:vPainel, cal:vCal, timer:vTimer, disc:vDisc, erros:vErros, notas:vNotas, edital:vEdital})[abaAtual]();
+  el.innerHTML = ({painel:vPainel, cal:vCal, timer:vTimer, disc:vDisc, notas:vNotas, edital:vEdital})[abaAtual]();
   if (abaAtual==="painel") desenhaGrafico();
   if (abaAtual==="notas") desenhaEvolucao();
   if (abaAtual==="timer") tickUI();
@@ -127,8 +95,7 @@ function vPainel(){
     ${card(m.streak, m.streak===1?"dia seguido":"dias seguidos","g")}
     ${card(m.dias.length,"dias estudados")}
     ${card(fmtH(m.totalSeg),"tempo total")}
-    ${(()=>{const u=ultSimulado(); const v=u?u.pc:m.dominio;
-      return card(v.toFixed(0)+"%","último simulado", v>=50?"g":v>=35?"y":"r");})()}
+    ${card(m.dominio.toFixed(0)+"%","domínio real", m.dominio>=50?"g":m.dominio>=35?"y":"r")}
     ${(()=>{const d=S.discursivas.filter(x=>x.tent===1);
       if(!d.length) return card("—","discursiva");
       const md=d.reduce((a,x)=>a+x.nota,0)/d.length*4;
@@ -138,31 +105,15 @@ function vPainel(){
    `<div class="box aviso">Nenhuma data de edital ou prova registrada. <button class="lk" onclick="irPara('edital')">Definir agora</button></div>`}
 
   <h2>Rumo à aprovação</h2>
-  ${(()=>{const u=ultSimulado(); if(!u) return "";
-    return `<div class="box">
-    <p class="mut"><b>Medida mais fiel:</b> ${u.nome}, de ${br(u.data)} — a prova inteira, sem material para a maior parte das matérias.</p>
-    <div class="prog"><i style="width:${Math.min(100,u.pc/50*100)}%"></i></div>
-    <p class="mut" style="margin-top:8px">Domínio de <b>${u.pc.toFixed(1)}%</b> nesse simulado (${u.re} reais e ${u.ch} por chute em ${u.t}) — ${u.pc>=50?"acima do corte":`faltam <b>${(50-u.pc).toFixed(1)} pontos</b>`}.</p></div>`;})()}
   <div class="box">
-    <p class="mut"><b>Acumulado de tudo</b> — inclui as rodadas de matérias já estudadas, por isso é mais alto.</p>
+    <p class="mut">Meta: <b>50% de domínio real</b> em cada bloco. A barra mostra a distância.</p>
     <div class="prog"><i style="width:${Math.min(100,m.dominio/50*100)}%"></i></div>
-    <p class="mut" style="margin-top:8px">Domínio real de <b>${m.dominio.toFixed(1)}%</b> em ${m.totQ} questões.</p>
+    <p class="mut" style="margin-top:8px">Domínio real de <b>${m.dominio.toFixed(1)}%</b> — ${m.dominio>=50?"acima do corte":`faltam ${(50-m.dominio).toFixed(1)} pontos`}.</p>
   </div>
 
   <h2>Evolução do domínio</h2>
   <div class="box"><canvas id="graf" height="180"></canvas>
-  <p class="mut" style="margin-top:8px;font-size:12px">Eixo em tempo real, do primeiro dia de estudo até hoje. O ponto vazio é o início, sem domínio medido. ${S.config.prova||S.config.edital?"A linha vermelha vertical marca a prova.":"Registre a data da prova para ver quanto tempo resta."}</p></div>
-
-  ${(()=>{ if(!S.erros.length) return "";
-    const cls=S.erros.map(e=>({st:statusErro(e)}));
-    const pen=cls.filter(x=>x.st.k==="pen").length, rei=cls.filter(x=>x.st.k==="rei"||x.st.k==="reg").length;
-    if(!pen&&!rei) return "";
-    return `<div class="box aviso"><b>${pen+rei} ${pen+rei===1?"questão espera":"questões esperam"} no caderno de erros</b>${rei?` — ${rei} ${rei===1?"reincidente":"reincidentes"}`:""}. <button class="lk" onclick="irPara('erros')">Abrir</button></div>`;})()}
-  <h2>Questões externas</h2>
-  <div class="box">
-    <div class="lks">${S.links.map(l=>`<a class="lkbt" href="${l.url}" target="_blank" rel="noopener">${l.nome} ↗</a>`).join("")}</div>
-    <button class="sec full" onclick="irPara('notas')">Registrar uma rodada feita fora</button>
-  </div>
+  ${S.rodadas.length<2?'<p class="mut" style="text-align:center;margin-top:8px">Responda mais rodadas para a curva aparecer.</p>':''}</div>
 
   <h2>Comportamento</h2>
   <table>
@@ -263,14 +214,14 @@ function delSessao(i){ if(confirm("Apagar esta sessão?")){ S.sessoes.splice(i,1
 let discAberta=null, modo="conteudo", dif="media", prova=null;
 function vDisc(){
   if(discAberta) return vModulo();
-  const blocos=["TI","Português","Direito","RLM","DF","Outros"];
+  const blocos=["TI","Português","Direito","RLM","DF","Outros","Arquivo"];
   return `<div class="box aviso"><b>Como ler os percentuais.</b> Eles somam <b>todas</b> as rodadas da matéria, com o chute já descontado.<br><br>
   <span class="org sim">só simulado</span> significa que o número vem apenas de provas respondidas sem material — é a <b>linha de base</b>, não resultado de estudo.
   <span class="org est">estudado</span> indica que houve rodada de módulo.</div>
   ${blocos.map(b=>{
     const ds=DISCIPLINAS.filter(d=>d.bloco===b);
     if(!ds.length) return "";
-    return `<h2>${b}</h2>${ds.map(d=>{
+    return `<h2>${b}${b==="Arquivo"?" — fora do edital PC-DF":""}</h2>${ds.map(d=>{
       const rs=S.rodadas.filter(r=>r.mat===d.id);
       const tot=rs.reduce((a,r)=>a+r.total,0), re=rs.reduce((a,r)=>a+r.reais,0);
       const pc=tot?Math.round(re/tot*100):null;
@@ -349,11 +300,7 @@ function vProva(){
 }
 function corrige(){ prova.fim=true;
   let reais=0,chutes=0;
-  prova.qs.forEach((q,i)=>{
-    const r=prova.resp[i];
-    if(r===q.g){ prova.chute[i]?chutes++:reais++; }
-    else registraErro(q, r);
-  });
+  prova.qs.forEach((q,i)=>{ if(prova.resp[i]===q.g){ prova.chute[i]?chutes++:reais++; } });
   S.rodadas.push({data:hoje(), mat:discAberta, dif, total:prova.qs.length, reais, chutes});
   if(!S.dias.includes(hoje())) S.dias.push(hoje());
   salvar(); render();
@@ -370,79 +317,6 @@ function vResultado(){
     <button class="sec full" onclick="prova=null;render()">Nova rodada</button></div>`;
 }
 
-
-// ════════════ CADERNO DE ERROS ════════════
-function qid(q){ let h=0; const t=q.m+"|"+q.e;
-  for(let i=0;i<t.length;i++){ h=((h<<5)-h+t.charCodeAt(i))|0; }
-  return q.m+"_"+Math.abs(h).toString(36); }
-
-function registraErro(q, resp){
-  const id=qid(q);
-  let e=S.erros.find(x=>x.id===id);
-  if(!e){ e={id, m:q.m, e:q.e, a:q.a, g:q.g, j:q.j, d:q.d, tent:[]}; S.erros.push(e); }
-  e.tent.push({data:hoje(), resp:(resp===undefined?null:resp), ok:false});
-}
-function statusErro(e){
-  const t=e.tent, u=t[t.length-1];
-  const acertos=t.filter(x=>x.ok).length;
-  const errosSeg=(()=>{ let n=0; for(let i=t.length-1;i>=0;i--){ if(t[i].ok) break; n++; } return n; })();
-  if(u.ok) return acertos>1||t.length>2 ? {k:"dom",l:"dominada",c:"g"} : {k:"dom",l:"dominada",c:"g"};
-  if(acertos>0) return {k:"reg",l:"acertou antes e errou de novo",c:"r"};
-  if(errosSeg>=2) return {k:"rei",l:`errada ${errosSeg}× seguidas`,c:"r"};
-  return {k:"pen",l:"pendente",c:"y"};
-}
-let filtroErro="todas", erroAberto=null, erroResp={};
-
-function vErros(){
-  if(!S.erros.length) return `<div class="box aviso"><b>Caderno vazio.</b> Toda questão que você errar nas rodadas vem parar aqui automaticamente, e nunca sai — mesmo depois de acertar.</div>`;
-  const cls=S.erros.map(e=>({e, st:statusErro(e)}));
-  const cont={todas:cls.length, pen:cls.filter(x=>x.st.k==="pen").length,
-    rei:cls.filter(x=>x.st.k==="rei"||x.st.k==="reg").length, dom:cls.filter(x=>x.st.k==="dom").length};
-  const filt=filtroErro==="todas"?cls:cls.filter(x=>filtroErro==="rei"?(x.st.k==="rei"||x.st.k==="reg"):x.st.k===filtroErro);
-  const mats=[...new Set(filt.map(x=>x.e.m))];
-  return `<div class="cards">
-    ${card(cont.todas,"no caderno")}${card(cont.pen,"pendentes","y")}
-    ${card(cont.rei,"reincidentes","r")}${card(cont.dom,"dominadas","g")}</div>
-  <div class="box aviso" style="font-size:12.5px">Nada sai daqui. Uma questão acertada fica marcada como <b>dominada</b>, mas o registro permanece — é assim que se distingue quem aprendeu de quem insiste no erro.</div>
-  <div class="nivs" style="margin-bottom:12px">
-    ${[["todas","Todas",cont.todas],["pen","Pendentes",cont.pen],["rei","Reincidentes",cont.rei],["dom","Dominadas",cont.dom]].map(([k,l,n])=>
-      `<button class="niv ${filtroErro===k?"at":""}" onclick="filtroErro='${k}';erroAberto=null;render()">${l}<em>${n}</em></button>`).join("")}
-  </div>
-  ${filt.length? mats.map(mt=>`<h2>${disc(mt)?disc(mt).n:mt}</h2>
-    ${filt.filter(x=>x.e.m===mt).map(x=>cardErro(x.e,x.st)).join("")}`).join("")
-    : '<div class="box mut">Nenhuma questão neste filtro.</div>'}`;
-}
-function cardErro(e,st){
-  const ab=erroAberto===e.id, L="ABCDE";
-  const ult=e.tent[e.tent.length-1];
-  if(!ab) return `<div class="item" onclick="abreErro('${e.id}')">
-    <span class="ord ${st.c==="g"?"vg":st.c==="r"?"vr":"vy"}">${e.tent.length}</span>
-    <span class="nm">${e.e.length>92?e.e.slice(0,92)+"…":e.e}<i class="org ${st.c==="g"?"est":"sim"}">${st.l}</i></span>
-    <span class="pill ${st.c}">${st.k==="dom"?"✓":"?"}</span></div>`;
-  const resp=erroResp[e.id], mostrou=resp!==undefined&&resp!==null&&erroResp[e.id+"_fim"];
-  return `<div class="q" style="border-color:#0f2b46">
-    <div class="qh"><span class="qn">${e.tent.length}ª</span><span>${e.e}</span></div>
-    ${e.a.map((a,j)=>`<label class="alt ${mostrou&&j===e.g?"cert":""}">
-      <input type="radio" name="e${e.id}" ${resp===j?"checked":""} ${mostrou?"disabled":""} onchange="erroResp['${e.id}']=${j}"><b>${L[j]}</b><span>${a}</span></label>`).join("")}
-    ${mostrou? `<div class="fb ${resp===e.g?"ok":"no"}">${resp===e.g
-        ? `<b>Correta.</b> ${e.j}` : `<b>Errou de novo.</b> Marcou ${L[resp]}; o gabarito é <b>${L[e.g]}</b>. ${e.j}`}</div>`
-      : `<button class="pri full" onclick="respondeErro('${e.id}')" ${resp===undefined?"disabled":""}>Responder</button>`}
-    <h3 style="margin:14px 0 6px;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#6b7c8c">Histórico</h3>
-    <table style="margin:0">${e.tent.map((t,i)=>`<tr><td>${i+1}ª · ${br(t.data)}</td>
-      <td>${t.resp===-1?`<span class="mut">${t.f||"origem não registrada"}</span>`:t.resp===null?"em branco":"marcou "+L[t.resp]}</td>
-      <td style="text-align:right"><b class="${t.ok?"vg":"vr"}">${t.ok?"acertou":"errou"}</b></td></tr>`).join("")}</table>
-    <button class="ter full" style="color:#6b7c8c;border-color:#c9d2da" onclick="erroAberto=null;render()">Fechar</button>
-  </div>`;
-}
-function abreErro(id){ erroAberto=id; delete erroResp[id]; delete erroResp[id+"_fim"]; render(); }
-function respondeErro(id){
-  const e=S.erros.find(x=>x.id===id), r=erroResp[id];
-  e.tent.push({data:hoje(), resp:r, ok:r===e.g});
-  erroResp[id+"_fim"]=true;
-  if(!S.dias.includes(hoje())) S.dias.push(hoje());
-  salvar(); render();
-}
-
 // ─── NOTAS ───
 function vNotas(){
   const m=metricas();
@@ -457,33 +331,6 @@ function vNotas(){
     return `<div class="box"><div class="mh"><b>${disc(mt)?disc(mt).n:mt}</b><span class="pill ${pc>=60?"g":pc>=35?"y":"r"}">${pc}%</span></div>
     <table>${rs.map((r,i)=>`<tr><td>${i+1}ª rodada · ${br(r.data)}</td><td style="font-size:11.5px">${r.f||r.dif}</td><td style="text-align:right"><b>${Math.round(r.reais/r.total*100)}%</b></td></tr>`).join("")}</table></div>`;
   }).join("") : '<div class="box mut">Nenhuma rodada respondida ainda.</div>'}
-  <h2>Rodadas feitas fora</h2>
-  <div class="box">
-    <div class="lks">${S.links.map((l,i)=>`<a class="lkbt" href="${l.url}" target="_blank" rel="noopener">${l.nome} ↗</a>`).join("")}</div>
-    <p class="mut">Não é possível puxar o desempenho automaticamente: a plataforma exige login e o navegador bloqueia a leitura entre domínios. Registre aqui o resultado depois de responder.</p>
-    <label class="lb">Matéria</label>
-    <select id="exm">${DISCIPLINAS.map(d=>`<option value="${d.id}">${d.ord}. ${d.n}</option>`).join("")}</select>
-    <div class="tri">
-      <div><label class="lb">Questões</label><input type="number" id="ext" min="1" value="10"></div>
-      <div><label class="lb">Acertos</label><input type="number" id="exa" min="0" value="0"></div>
-      <div><label class="lb">Dos quais chute</label><input type="number" id="exc" min="0" value="0"></div>
-    </div>
-    <label class="lb" style="margin-top:12px">Origem</label>
-    <input type="text" id="exf" value="TEC Concursos" placeholder="onde você respondeu">
-    <button class="pri full" onclick="salvaExterna()">Registrar rodada</button>
-    <p class="mut" style="margin-top:9px">Informe em <b>acertos</b> o total, e em <b>chute</b> quantos desses não vieram de domínio. A plataforma desconta sozinha.</p>
-  </div>
-
-  <h2>Meus links</h2>
-  <div class="box">
-    ${S.links.map((l,i)=>`<div class="lkrow"><span>${l.nome}</span><button class="x" onclick="delLink(${i})">×</button></div>`).join("")}
-    <div class="tri2" style="margin-top:9px">
-      <input type="text" id="lkn" placeholder="nome do caderno">
-      <input type="text" id="lku" placeholder="https://...">
-    </div>
-    <button class="sec full" onclick="addLink()">Adicionar link</button>
-  </div>
-
   <h2>Backup</h2>
   <div class="box"><p class="mut">Guarde uma cópia dos dados ou restaure em outro aparelho.</p>
   <button class="sec" onclick="exportar()">Exportar</button>
@@ -502,23 +349,6 @@ function importar(inp){
     catch(x){ alert("Arquivo inválido."); } };
   r.readAsText(f);
 }
-
-function salvaExterna(){
-  const m=document.getElementById("exm").value;
-  const t=+document.getElementById("ext").value, a=+document.getElementById("exa").value, c=+document.getElementById("exc").value;
-  const f=document.getElementById("exf").value.trim()||"Externa";
-  if(!t||a>t||c>a){ alert("Confira os números: acertos não podem passar do total, e chutes não podem passar dos acertos."); return; }
-  S.rodadas.push({data:hoje(), mat:m, dif:"media", total:t, reais:a-c, chutes:c, f});
-  if(!S.dias.includes(hoje())) S.dias.push(hoje());
-  salvar(); render();
-  alert(`Registrado: ${a-c} ${a-c===1?"acerto real":"acertos reais"} em ${t} questões.`);
-}
-function addLink(){
-  const n=document.getElementById("lkn").value.trim(), u=document.getElementById("lku").value.trim();
-  if(!n||!/^https?:\/\//.test(u)){ alert("Informe um nome e um endereço começando com https://"); return; }
-  S.links.push({nome:n,url:u}); salvar(); render();
-}
-function delLink(i){ S.links.splice(i,1); salvar(); render(); }
 
 // ─── EDITAL ───
 function vEdital(){
@@ -539,32 +369,15 @@ function vEdital(){
     <tr><td>Discursiva</td><td>4 questões · <b>abaixo de 60 elimina</b></td></tr>
     <tr><td>Eliminatórios extras</td><td>CNH · teste físico</td></tr>
   </table>
-  <div class="box aviso">Zerar Língua Portuguesa elimina do certame, qualquer que seja o restante da nota.</div>
-
-  <h2>Sincronização entre aparelhos</h2>
-  <div class="box">
-    <table style="margin-bottom:10px">
-      <tr><td>Situação</td><td><b class="${sincOK?"vg":"vr"}">${sincOK?"sincronizado":"só neste aparelho"}</b></td></tr>
-      <tr><td>Resposta do servidor</td><td><b>${DIAG.status}</b></td></tr>
-      <tr><td>Detalhe</td><td style="font-size:12px">${DIAG.msg}</td></tr>
-      <tr><td>Última gravação</td><td>${S.atualizadoEm?new Date(S.atualizadoEm).toLocaleString("pt-BR"):"—"}</td></tr>
-      <tr><td>Registros</td><td>${(S.rodadas||[]).length} rodadas · ${(S.erros||[]).length} erros · ${(S.sessoes||[]).length} sessões</td></tr>
-    </table>
-    <button class="pri full" id="bsinc" onclick="forcarSinc()">Sincronizar agora</button>
-    <p class="mut" style="margin-top:10px">Abra esta tela nos dois aparelhos e toque em <b>Sincronizar agora</b>. Vence sempre a gravação mais recente; em empate, a que tiver mais registros.</p>
-  </div>
-  ${!sincOK?`<div class="box aviso"><b>O servidor não respondeu.</b> Os dados continuam salvos neste aparelho e sobem sozinhos quando a conexão voltar.<br><br>Se persistir, confira no Netlify: o deploy precisa incluir <code>netlify/functions/store.js</code>, o <code>package.json</code> com <code>@netlify/blobs</code>, e o build command <code>npm install</code>.</div>`:""}`;
+  <div class="box aviso">Zerar Língua Portuguesa elimina do certame, qualquer que seja o restante da nota.</div>`;
 }
 
 // ─── GRÁFICOS ───
 function linha(id, pts, rot){
   const c=document.getElementById(id); if(!c) return;
-  const dpr=window.devicePixelRatio||1;
-  const W=c.offsetWidth, H=220;
-  c.width=W*dpr; c.height=H*dpr; c.style.height=H+"px";
-  const x=c.getContext("2d"); x.scale(dpr,dpr);
+  const x=c.getContext("2d"), W=c.width=c.offsetWidth, H=c.height;
   x.clearRect(0,0,W,H);
-  const P=38, w=W-P*2, h=H-P-16;
+  const P=34, w=W-P*2, h=H-P;
   x.strokeStyle="#dbe2e8"; x.lineWidth=1;
   for(let i=0;i<=4;i++){ const y=P/2+h*(i/4);
     x.beginPath(); x.moveTo(P,y); x.lineTo(W-P/2,y); x.stroke();
@@ -573,73 +386,24 @@ function linha(id, pts, rot){
   // linha da meta
   const ym=P/2+h*0.5; x.strokeStyle="#c0392b"; x.setLineDash([4,3]);
   x.beginPath(); x.moveTo(P,ym); x.lineTo(W-P/2,ym); x.stroke(); x.setLineDash([]);
-  if(pts.length<2) return;
-  // eixo de tempo real: do início até hoje (ou até a prova, se houver)
-  const t0=Date.parse(DATA_INICIO);
-  const alvo=S.config.prova||S.config.edital;
-  const t1=Math.max(Date.parse(hoje()), Date.parse(pts[pts.length-1].d), alvo?Date.parse(alvo):0);
-  const span=Math.max(1, t1-t0);
-  const px=d=>P+w*((Date.parse(d)-t0)/span);
+  if(pts.length<1) return;
+  const px=i=>P+(pts.length===1?w/2:w*(i/(pts.length-1)));
   const py=v=>P/2+h*(1-v/100);
-  // marcas de mês
-  const m0=new Date(t0); m0.setDate(1);
-  x.font="9px Helvetica"; x.textAlign="center";
-  const mn=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
-  for(let d=new Date(m0); d.getTime()<=t1; d.setMonth(d.getMonth()+1)){
-    if(d.getTime()<t0) continue;
-    const cx=px(d.toISOString().slice(0,10));
-    x.strokeStyle="#eef1f4"; x.beginPath(); x.moveTo(cx,P/2); x.lineTo(cx,P/2+h); x.stroke();
-    x.fillStyle="#a8b4c0"; x.fillText(mn[d.getMonth()], cx, H-16);
-  }
-  // marcador da data da prova
-  if(alvo && Date.parse(alvo)<=t1){
-    const cx=px(alvo); x.strokeStyle="#c0392b"; x.setLineDash([2,3]);
-    x.beginPath(); x.moveTo(cx,P/2); x.lineTo(cx,P/2+h); x.stroke(); x.setLineDash([]);
-    x.fillStyle="#c0392b"; x.font="bold 9px Helvetica"; x.fillText("prova", cx, P/2-4);
-  }
-  // linha
-  x.strokeStyle="#0f2b46"; x.lineWidth=2; x.lineJoin="round"; x.beginPath();
-  pts.forEach((p,i)=>{ i?x.lineTo(px(p.d),py(p.v)):x.moveTo(px(p.d),py(p.v)); }); x.stroke();
-  // pontos
-  pts.forEach((p,i)=>{
-    const cx=px(p.d), cy=py(p.v);
-    if(p.ini){
-      x.fillStyle="#fff"; x.strokeStyle="#8b98a5"; x.lineWidth=1.5;
-      x.beginPath(); x.arc(cx,cy,4,0,7); x.fill(); x.stroke();
-      x.fillStyle="#8b98a5"; x.font="9px Helvetica"; x.textAlign="left";
-      x.fillText("início", cx+7, cy-5); return;
-    }
-    x.fillStyle="#fff"; x.beginPath(); x.arc(cx,cy,5,0,7); x.fill();
-    x.fillStyle=p.v>=50?"#2e7d32":p.v>=35?"#9a7b30":"#c0392b";
-    x.beginPath(); x.arc(cx,cy,3.5,0,7); x.fill();
-    if(i===pts.length-1){
-      x.fillStyle="#0f2b46"; x.font="bold 11px Helvetica"; x.textAlign="right";
-      x.fillText(Math.round(p.v)+"%", cx-8, cy+4);
-    }
-  });
-  x.fillStyle="#8b98a5"; x.font="9px Helvetica"; x.textAlign="center";
-  x.fillText(rot, W/2, H-3);
+  x.strokeStyle="#0f2b46"; x.lineWidth=2.5; x.beginPath();
+  pts.forEach((p,i)=>{ i?x.lineTo(px(i),py(p)):x.moveTo(px(i),py(p)); }); x.stroke();
+  pts.forEach((p,i)=>{ x.fillStyle=p>=50?"#2e7d32":p>=35?"#9a7b30":"#c0392b";
+    x.beginPath(); x.arc(px(i),py(p),4.5,0,7); x.fill(); });
+  x.fillStyle="#8b98a5"; x.font="10px Helvetica"; x.textAlign="center";
+  x.fillText(rot, W/2, H-4);
 }
 function serie(){
   const ord=[...S.rodadas].sort((a,b)=>a.data.localeCompare(b.data));
-  const dias=[...new Set(ord.map(x=>x.data))].sort();
-  let r=0,t=0;
-  const pts=[{d:DATA_INICIO, v:0, q:0, ini:true}];
-  dias.forEach(d=>{ ord.filter(x=>x.data===d).forEach(x=>{r+=x.reais;t+=x.total;});
-    pts.push({d, v:r/t*100, q:t}); });
-  return pts;
+  const porDia={};
+  ord.forEach(x=>{ porDia[x.data]=porDia[x.data]||{r:0,t:0}; porDia[x.data].r+=x.reais; porDia[x.data].t+=x.total; });
+  return Object.keys(porDia).sort().map(d=>porDia[d].r/porDia[d].t*100);
 }
-// desempenho isolado do simulado mais recente
-function ultSimulado(){
-  const sim=S.rodadas.filter(r=>(r.f||"").indexOf("Simulado")===0);
-  if(!sim.length) return null;
-  const nome=sim[sim.length-1].f;
-  const g=sim.filter(r=>r.f===nome);
-  const t=g.reduce((a,x)=>a+x.total,0), re=g.reduce((a,x)=>a+x.reais,0), ch=g.reduce((a,x)=>a+x.chutes,0);
-  return {nome, t, re, ch, pc: re/t*100, data: g[0].data};
-}
-function desenhaGrafico(){ linha("graf", serie(), "domínio acumulado desde 21/07/2026 · tracejado horizontal = corte de 50%"); }
-function desenhaEvolucao(){ linha("evo", serie(), "domínio acumulado desde 21/07/2026 · tracejado horizontal = corte de 50%"); }
+function desenhaGrafico(){ linha("graf", serie(), "linha vermelha = corte de 50%"); }
+function desenhaEvolucao(){ linha("evo", serie(), "domínio real acumulado por rodada"); }
 
 // ─── BOOT ───
 (async function(){
